@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -14,6 +15,7 @@ import android.os.Environment;
 import androidx.annotation.RequiresApi;
 
 import android.os.Handler;
+import android.os.ParcelFileDescriptor;
 import android.os.ResultReceiver;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -37,6 +39,7 @@ public class HBRecorder implements MyListener {
     private boolean isAudioEnabled = true;
     private boolean isVideoHDEnabled = true;
     private Activity activity;
+    private Uri outputUri = null;
     private String outputPath;
     private String fileName;
     private String notificationTitle;
@@ -69,6 +72,10 @@ public class HBRecorder implements MyListener {
     /*Set file name*/
     public void setFileName(String fileName) {
         this.fileName = fileName;
+    }
+
+    public void setOutputUri(Uri outputUri){
+        this.outputUri = outputUri;
     }
 
     /*Set audio bitrate*/
@@ -220,6 +227,7 @@ public class HBRecorder implements MyListener {
             service.putExtra("quality", isVideoHDEnabled);
             service.putExtra("path", outputPath);
             service.putExtra("fileName", fileName);
+            service.putExtra("uri", outputUri);
             service.putExtra("audioBitrate", audioBitrate);
             service.putExtra("audioSamplingRate", audioSamplingRate);
             service.putExtra("notificationSmallBitmap", byteArray);

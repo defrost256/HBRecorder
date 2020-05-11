@@ -17,6 +17,7 @@ import android.hardware.display.VirtualDisplay;
 import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -24,9 +25,11 @@ import android.os.IBinder;
 
 import androidx.annotation.RequiresApi;
 
+import android.os.ParcelFileDescriptor;
 import android.os.ResultReceiver;
 import android.util.Log;
 
+import java.io.IOException;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
@@ -49,6 +52,7 @@ public class ScreenRecordService extends Service {
     private boolean isVideoHD;
     private boolean isAudioEnabled;
     private String path;
+    private ParcelFileDescriptor fileDescriptor;
 
     private MediaProjection mMediaProjection;
     private MediaRecorder mMediaRecorder;
@@ -58,6 +62,7 @@ public class ScreenRecordService extends Service {
     private int audioSamplingRate;
     private static String filePath;
     private static String fileName;
+    private static Uri fileUri;
     private int audioSourceAsInt;
     private int videoEncoderAsInt;
     private boolean isCustomSettingsEnabled;
@@ -90,6 +95,7 @@ public class ScreenRecordService extends Service {
         mScreenDensity = intent.getIntExtra("density", 1);
         isVideoHD = intent.getBooleanExtra("quality", true);
         isAudioEnabled = intent.getBooleanExtra("audio", true);
+        fileUri = intent.getParcelableExtra("uri");
         path = intent.getStringExtra("path");
         name = intent.getStringExtra("fileName");
         String audioSource = intent.getStringExtra("audioSource");
@@ -350,12 +356,16 @@ public class ScreenRecordService extends Service {
 
     //Return the output file path as string
     public static String getFilePath() {
-        return filePath;
+        if(fileUri == null)
+            return filePath;
+        return fileUri.getPath();
     }
 
     //Return the name of the output file
     public static String getFileName() {
-        return fileName;
+        if(fileUri == null)
+            return fileName;
+        return fileUri.getLastPathSegment();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -390,7 +400,18 @@ public class ScreenRecordService extends Service {
         }
 
         mMediaRecorder.setVideoEncoder(videoEncoderAsInt);
-        mMediaRecorder.setOutputFile(path + "/" + name + ".mp4");
+        if(fileUri == null) {
+            mMediaRecorder.setOutputFile(path + "/" + name + ".mp4");
+        } else {
+            fileDescriptor = getContentResolver().openFileDescriptor(fileUri, "w");
+            if(fileDescriptor == null){
+                Log.w(TAG, "File descriptor couldn't be opened, using default file path :" + filePath);
+                mMediaRecorder.setOutputFile(path + "/" + name + ".mp4");
+            }
+            else
+                mMediaRecorder.setOutputFile(fileDescriptor.getFileDescriptor());
+        }
+
         mMediaRecorder.setVideoSize(mScreenWidth, mScreenHeight);
 
         if (!isCustomSettingsEnabled) {
@@ -441,6 +462,13 @@ public class ScreenRecordService extends Service {
         if (mMediaProjection != null) {
             mMediaProjection.stop();
             mMediaProjection = null;
+        }
+        if(fileDescriptor != null){
+            try {
+                fileDescriptor.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
